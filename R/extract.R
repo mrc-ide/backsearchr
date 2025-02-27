@@ -75,14 +75,20 @@ process_cermxml <- function(infile) {
     # Process each reference and extract citation details
   ref_list <- lapply(
     references, function(ref) {
-      authors <- xml_text(xml_find_all(ref, ".//name"))
+      surname <- xml_text(xml_find_first(ref, ".//surname"))
       title <- xml_text(xml_find_first(ref, ".//article-title"))
-      journal <- xml_text(xml_find_first(ref, ".//source"))
-      year <- xml_text(xml_find_first(ref, ".//year"))
+      ## Find everything that is listed as a source, one of them would be the
+      ## journal
+      journals <- xml_text(xml_find_all(ref, ".//source"))
+      journal <- paste(journals, collapse = "|")
+      ## If an year appears in the title, it might get slotted in here.
+      ## Extract all.
+      year <- xml_text(xml_find_all(ref, ".//year"))
+      
       doi <- xml_text(xml_find_first(ref, ".//pub-id[@pub-id-type='doi']"))
 
       data.frame(
-        authors = authors,
+        authors = surname,
         title = title,
         journal = journal,
         year = year,
