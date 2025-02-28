@@ -78,7 +78,8 @@ extract_references_cermine <- function(indir, ...) {
 ##' @importFrom xml2 read_xml xml_find_all xml_text xml_find_first
 ##' @noRd
 process_cermxml <- function(infile) {
-    # Read the XML file
+                                        # Read the XML file
+    cli_alert_info("Processing {infile}")
     doc <- read_xml(infile)
 
     # Extract all references using JATS reference tags (typically <ref> elements)
@@ -89,13 +90,16 @@ process_cermxml <- function(infile) {
     references, function(ref) {
       surname <- xml_text(xml_find_first(ref, ".//surname"))
       title <- xml_text(xml_find_first(ref, ".//article-title"))
+      cli_alert_info("Processing {title}")
       ## Find everything that is listed as a source, one of them would be the
       ## journal
       journals <- xml_text(xml_find_all(ref, ".//source"))
+      journals <- ifelse(length(journals) == 0, NA, journals)
       journal <- paste(journals, collapse = "|")
       ## If an year appears in the title, it might get slotted in here.
       ## Extract all.
       year <- xml_text(xml_find_all(ref, ".//year"))
+      year <- ifelse(length(year) == 0, NA, year)
       
       doi <- xml_text(xml_find_first(ref, ".//pub-id[@pub-id-type='doi']"))
 
@@ -107,6 +111,7 @@ process_cermxml <- function(infile) {
         doi = doi
       )
     })
+  
   ref_list <- do.call(rbind, ref_list)
 
   ref_list

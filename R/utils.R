@@ -45,9 +45,3 @@ deduplicate_references <- function(x) {
   x <- rbind(doi_not_na, doi_na)
   x
 }
-
-compare_dois <- funcion(x, y) {
-  ## Ensure only non-NA values are compared
-  ## Remove htttps://doi.org/ from the beginning of the DOI
-  x$doi %in% y$doi
-}
