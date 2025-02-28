@@ -59,11 +59,23 @@ extract_references_cermine <- function(indir, ...) {
   }
 
   ## Extract references from the cermxml files
-  ref_list <- lapply(cermxml_files, process_cermxml)
+  ref_list <- lapply(cermxml_files, function(infile) {
+
+    out <- process_cermxml(infile)
+    out$extracted_from <- basename(infile)
+    out
+  })
+
+  ref_list <- do.call(rbind, ref_list)
+
+  ## Now dedeuplicate the references dataframe
+  ref_list <- deduplicate_references(ref_list)
+  ref_list
   
 }
 
 ##' Process cermxml files
+##' @importFrom xml2 read_xml xml_find_all xml_text xml_find_first
 ##' @noRd
 process_cermxml <- function(infile) {
     # Read the XML file
