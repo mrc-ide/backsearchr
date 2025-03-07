@@ -12,7 +12,10 @@
 ##' @export
 extract_references <- function(indir, method = "cermine", ...) {
    match.arg(method)
-   if (method == "cermine") extract_references_cermine(indir, ...)
+   if (method == "cermine") ref_list <- extract_references_cermine(indir, ...)
+   ## Now dedeuplicate the references dataframe
+   ref_list <- deduplicate_references(ref_list)
+   ref_list
 }
 
 extract_references_cermine <- function(indir, ...) {
@@ -68,8 +71,7 @@ extract_references_cermine <- function(indir, ...) {
 
   ref_list <- do.call(rbind, ref_list)
 
-  ## Now dedeuplicate the references dataframe
-  ref_list <- deduplicate_references(ref_list)
+  
   ref_list
   
 }
@@ -79,7 +81,7 @@ extract_references_cermine <- function(indir, ...) {
 ##' @noRd
 process_cermxml <- function(infile) {
                                         # Read the XML file
-    cli_alert_info("Processing {infile}")
+    cli_alert_info("Processing    {infile}")
     doc <- read_xml(infile)
 
     # Extract all references using JATS reference tags (typically <ref> elements)
@@ -101,8 +103,9 @@ process_cermxml <- function(infile) {
       year <- xml_text(xml_find_all(ref, ".//year"))
       year <- ifelse(length(year) == 0, NA, year)
       
-      doi <- xml_text(xml_find_first(ref, ".//pub-id[@pub-id-type='doi']"))
-
+      doi <- xml_text(xml_find_first(ref, ".//article-id[@pub-id-type='doi']"))
+      doi <- ifelse(length(doi) == 0, NA, doi)
+      
       data.frame(
         authors = surname,
         title = title,

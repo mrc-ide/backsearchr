@@ -45,3 +45,77 @@ deduplicate_references <- function(x) {
   x <- rbind(doi_not_na, doi_na)
   x
 }
+
+##' Retrieve additional information for references using crossref
+##'
+##' Automated extraction leaves a lot wanting. The only thing we can reliably
+##' extract is the title. We can use this title to query crossref and get
+##' additional information. This function takes a data.frame of references and
+##' queries crossref for additional information. It returns a data.frame with
+##' 
+##' @param title 
+##' @param x data.frame of references. Must have columns "doi" and "title".
+##' @return
+##' @importFrom rcrossref cr_works
+##' @author Sangeeta Bhatia
+get_missing_article_info <- function(title, authors) {
+  ## Only get the first result
+  inputs <- c(title, authors)
+  query <- paste(inputs[!is.na(inputs)], collapse = " ")
+  cr <- tryCatch({cr_works(
+    flq = c(query.bibliographic = query), limit = 1, select = c("DOI", "title")
+  )},
+  error = function(cond) {
+    message(conditionMessage(cond))
+    return(NULL)
+  })
+  if (cr$meta$total_results == 0) {
+    cli_alert_info("I could not find any entry in Crossref for {title}")
+    return(NULL)
+  }
+  ## Somewhat annoyingly, the returned data.frame may not contain the columns we asked for.
+  if ("title" %in% colnames(cr$data)) {
+    cr$data$cleanup_title <- cleanup_strings(cr$data$title)
+    idx <- grepl(cleanup_strings(title), cr$data$cleanup_title)
+    cr$data <- cr$data[idx, ]    
+  } else {
+    ## Add a column anyway so that we don't error downstream
+    cr$data$title <- NA
+  }
+  cr$data
+}
+
+
+get_missing_article_info_ <- function(ref_list) {
+   ## Now extract additional information for each reference
+   ## doi is the key to everything; so if we have doi, we won;t
+   ## bother querying the crossref API.
+   doi_not_na <- ref_list[!is.na(ref_list$doi), ]
+   doi_na <- ref_list[is.na(ref_list$doi), ]
+   cli_alert_info("DOI available for {nrow(doi_not_na)} reference{?s}")
+   cli_alert_info("DOI missing for {nrow(doi_na)} reference{?s}")
+   doi_na[["crossref_title"]] <- NA
+   for (row in seq_len(nrow(doi_na))) {
+     cli_alert_info("Query {row} of {nrow(doi_na)}")
+     skip_to_next <- FALSE
+     
+     out <- tryCatch(
+       get_missing_article_info(doi_na[["title"]][row], doi_na[["authors"]][row]),
+       error = function(e) {
+          cli_alert_error("Error in query")
+          skip_to_next <<- TRUE
+       }
+     )
+
+     if (skip_to_next) {
+       cli_alert_info("I got an error in query {row}. Skipping to next query.")
+       next
+     }
+     else if (!is.null(out) & nrow(out) != 0) {
+       doi_na[["doi"]][row] <- out$doi
+       doi_na[["crossref_title"]][row] <- out$title
+     }
+   }
+  ref_list <- rbind(doi_na, doi_not_na)
+  ref_list
+}
