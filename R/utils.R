@@ -60,6 +60,10 @@ deduplicate_references <- function(x) {
 ##' @author Sangeeta Bhatia
 get_missing_article_info <- function(title, authors) {
   ## Only get the first result
+  if (is.na(title) & is.na(authors)) {
+    cli_alert_info("Both title and author is NA. I am returning empty-handed.")
+    return(NULL)
+  }
   inputs <- c(title, authors)
   query <- paste(inputs[!is.na(inputs)], collapse = " ")
   cr <- tryCatch({cr_works(
@@ -102,7 +106,7 @@ get_missing_article_info_ <- function(ref_list) {
      out <- tryCatch(
        get_missing_article_info(doi_na[["title"]][row], doi_na[["authors"]][row]),
        error = function(e) {
-          cli_alert_error("Error in query")
+          cli_alert_danger("Error in query")
           skip_to_next <<- TRUE
        }
      )
@@ -110,8 +114,7 @@ get_missing_article_info_ <- function(ref_list) {
      if (skip_to_next) {
        cli_alert_info("I got an error in query {row}. Skipping to next query.")
        next
-     }
-     else if (!is.null(out) & nrow(out) != 0) {
+     } else if (!is.null(out) && nrow(out) != 0) {
        doi_na[["doi"]][row] <- out$doi
        doi_na[["crossref_title"]][row] <- out$title
      }
