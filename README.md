@@ -8,7 +8,6 @@ The goal of backsearchr is to automate backward citation searching. This is a co
 they have considered (included or excluded) all relevant papers.
 
 ## Installation
-
 You can install the development version of backsearchr like so:
 
 ``` r
@@ -44,4 +43,3 @@ This comparison is non-trivial for several reasons. First, using automatically c
 library(backsearchr)
 ## basic example code
 ```
-s 

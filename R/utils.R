@@ -46,18 +46,23 @@ deduplicate_references <- function(x) {
   x
 }
 
-##' Retrieve additional information for references using crossref
+##' Retrieve additional information for a reference using crossref
 ##'
 ##' Automated extraction leaves a lot wanting. The only thing we can reliably
 ##' extract is the title. We can use this title to query crossref and get
-##' additional information. This function takes a data.frame of references and
+##' additional information. This function takes a single reference and author
+##' name and 
 ##' queries crossref for additional information. It returns a data.frame with
-##' 
-##' @param title 
-##' @param x data.frame of references. Must have columns "doi" and "title".
-##' @return
+##' the title and DOI information for the input query parameters. If you wish to
+##' query multiple references, use \code{\link{get_missing_article_info_}}.
+##' @param title (character) title of the article
+##' @param authors (character) authors of the article
+##' @return a data.frame with title and DOI information for the input query
+##' parameters.
 ##' @importFrom rcrossref cr_works
+##' @importFrom cli cli_alert_danger cli_alert_info
 ##' @author Sangeeta Bhatia
+##' @export
 get_missing_article_info <- function(title, authors) {
   ## Only get the first result
   if (is.na(title) & is.na(authors)) {
@@ -89,7 +94,22 @@ get_missing_article_info <- function(title, authors) {
   cr$data
 }
 
-
+##' Retrieve additional information for multiple references using crossref
+##'
+##' This function takes a data.frame of references and queries crossref for
+##' additional information for each reference that is missing a DOI. It returns
+##' a data.frame with the
+##' title and DOI information for the input query parameters. 
+##' 
+##' @param ref_list A list of references, most likely output from
+##' \code{\link{extract_references}}. If you have produced a list of references
+##' manually, ensure that it has the following columns: doi, title, authors.
+##' @param title (character) title of the article
+##' @param authors (character) authors of the article
+##' @return the input data.frame with DOI updated where it could be retrirved
+##' from rcrossref
+##' @author Sangeeta Bhatia
+##' @export
 get_missing_article_info_ <- function(ref_list) {
    ## Now extract additional information for each reference
    ## doi is the key to everything; so if we have doi, we won;t
