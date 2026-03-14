@@ -138,7 +138,6 @@ extract_references_grobid <- function(
 
   check_java_available("GROBID")
 
-  # Run GROBID batch parser over all PDFs in input directory.
   native_lib_dir <- resolve_grobid_native_lib_dir(grobid_home)
   java_lib_opt <- character(0)
   if (!is.na(native_lib_dir) && nzchar(native_lib_dir)) {
@@ -164,13 +163,11 @@ extract_references_grobid <- function(
     stop("GROBID extraction failed.", call. = FALSE)
   }
 
-  # Parse generated TEI XML files.
   tei_files <- list.files(
     indir, pattern = "\\.tei\\.xml$", full.names = TRUE, recursive = TRUE,
     ignore.case = TRUE
   )
   if (length(tei_files) == 0) {
-    # Some builds output generic .xml; keep only files likely to be TEI outputs.
     all_xml <- list.files(
       indir, pattern = "\\.xml$", full.names = TRUE, recursive = TRUE,
       ignore.case = TRUE
@@ -281,7 +278,6 @@ process_cermxml <- function(infile) {
 process_grobid_tei <- function(infile) {
   cli_alert_info("Processing    {infile}")
   doc <- read_xml(infile)
-
   # TEI references usually live under //listBibl/biblStruct.
   references <- xml_find_all(doc, "//*[local-name()='listBibl']/*[local-name()='biblStruct']")
 
