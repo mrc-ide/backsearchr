@@ -139,13 +139,7 @@ extract_references_grobid <- function(
   check_java_available("GROBID")
 
   # Run GROBID batch parser over all PDFs in input directory.
-  native_lib_candidates <- c(
-    file.path(grobid_home, "lib", "mac_arm-64"),
-    file.path(grobid_home, "lib", "mac-64"),
-    file.path(grobid_home, "lib", "lin-64"),
-    file.path(grobid_home, "lib", "win-64")
-  )
-  native_lib_dir <- native_lib_candidates[dir.exists(native_lib_candidates)][1]
+  native_lib_dir <- resolve_grobid_native_lib_dir(grobid_home)
   java_lib_opt <- character(0)
   if (!is.na(native_lib_dir) && nzchar(native_lib_dir)) {
     java_lib_opt <- paste0("-Djava.library.path=", native_lib_dir)
@@ -214,6 +208,30 @@ check_java_available <- function(tool_name) {
     )
     stop("Java is required for ", tool_name, call. = FALSE)
   }
+}
+
+resolve_grobid_native_lib_dir <- function(grobid_home) {
+  sysname <- tolower(Sys.info()[["sysname"]])
+  machine <- tolower(Sys.info()[["machine"]])
+
+  preferred_dir <- switch(
+    sysname,
+    darwin = if (grepl("arm|aarch", machine)) "mac_arm-64" else "mac-64",
+    linux = "lin-64",
+    windows = "win-64",
+    ""
+  )
+
+  if (nzchar(preferred_dir)) {
+    preferred_path <- file.path(grobid_home, "lib", preferred_dir)
+    if (dir.exists(preferred_path)) {
+      return(preferred_path)
+    }
+  }
+
+  fallback_dirs <- c("mac_arm-64", "mac-64", "lin-64", "win-64")
+  fallback_paths <- file.path(grobid_home, "lib", fallback_dirs)
+  fallback_paths[dir.exists(fallback_paths)][1]
 }
 
 ##' Process cermxml files

@@ -20,6 +20,10 @@ cleanup_strings <- function(text) {
   text
 }
 
+`%||%` <- function(x, y) {
+  if (is.null(x) || length(x) == 0 || is.na(x) || !nzchar(x)) y else x
+}
+
 ##' Deduplicate a list of references
 ##'
 ##' Identify duplicates based on DOI and title. Remove duplicates and return a
@@ -141,4 +145,169 @@ get_missing_article_info_ <- function(ref_list) {
    }
   ref_list <- rbind(doi_na, doi_not_na)
   ref_list
+}
+
+strip_doi_prefix <- function(doi) {
+  doi <- trimws(as.character(doi))
+  doi <- sub("^https?://(dx\\.)?doi\\.org/", "", doi, ignore.case = TRUE)
+  doi[nchar(doi) == 0] <- NA_character_
+  doi
+}
+
+doi_to_filename <- function(doi, ext = ".pdf") {
+  doi <- strip_doi_prefix(doi)
+  safe_name <- gsub("[^A-Za-z0-9]+", "_", doi)
+  safe_name <- gsub("^_+|_+$", "", safe_name)
+  paste0(safe_name, ext)
+}
+
+extract_crossref_pdf_url <- function(cr_data) {
+  if (is.null(cr_data) || nrow(cr_data) == 0 || !"link" %in% colnames(cr_data)) {
+    return(NA_character_)
+  }
+
+  link_info <- cr_data$link[[1]]
+  if (is.null(link_info) || length(link_info) == 0) {
+    return(NA_character_)
+  }
+
+  if (is.data.frame(link_info)) {
+    if ("content.type" %in% names(link_info)) {
+      idx <- which(tolower(link_info[["content.type"]]) == "application/pdf")[1]
+      if (!is.na(idx) && "URL" %in% names(link_info)) {
+        return(as.character(link_info[["URL"]][idx]))
+      }
+    }
+    return(NA_character_)
+  }
+
+  if (is.list(link_info)) {
+    content_types <- vapply(
+      link_info,
+      function(x) as.character(x[["content.type"]] %||% NA_character_),
+      character(1)
+    )
+    pdf_idx <- which(tolower(content_types) == "application/pdf")[1]
+    if (!is.na(pdf_idx)) {
+      return(as.character(link_info[[pdf_idx]][["URL"]] %||% NA_character_))
+    }
+    return(NA_character_)
+  }
+
+  NA_character_
+}
+
+download_remote_file <- function(url, destfile) {
+  utils::download.file(url, destfile = destfile, mode = "wb", quiet = TRUE)
+}
+
+##' Download PDFs for a vector of DOIs
+##'
+##' This function attempts to resolve each DOI to a downloadable file URL using
+##' Crossref metadata and saves the file in a user-specified directory.
+##' It works best for DOIs with a PDF link exposed via Crossref. When no direct
+##' file link is available, the DOI is reported as not downloadable.
+##'
+##' @param dois character vector of DOIs or doi.org URLs
+##' @param outdir path to the directory where downloaded files should be saved
+##' @param overwrite logical; overwrite existing files if TRUE
+##' @return a data.frame with one row per DOI and columns describing the
+##' download status, output path, and resolved URL
+##' @importFrom cli cli_alert_danger cli_alert_info
+##' @importFrom rcrossref cr_works
+##' @export
+download_doi_pdfs <- function(dois, outdir, overwrite = FALSE) {
+  if (missing(dois) || length(dois) == 0) {
+    cli_alert_danger("No DOIs supplied.")
+    stop("`dois` must contain at least one DOI.", call. = FALSE)
+  }
+
+  if (missing(outdir) || !nzchar(outdir)) {
+    cli_alert_danger("No output directory supplied.")
+    stop("`outdir` must be provided.", call. = FALSE)
+  }
+
+  if (!dir.exists(outdir)) {
+    dir.create(outdir, recursive = TRUE, showWarnings = FALSE)
+  }
+  if (!dir.exists(outdir)) {
+    cli_alert_danger("Could not create output directory {.path {outdir}}.")
+    stop("Output directory could not be created.", call. = FALSE)
+  }
+
+  normalized_dois <- strip_doi_prefix(dois)
+  results <- vector("list", length(normalized_dois))
+
+  for (i in seq_along(normalized_dois)) {
+    doi <- normalized_dois[[i]]
+    cli_alert_info("Processing DOI {i} of {length(normalized_dois)}: {doi %||% '<missing>'}")
+
+    result <- data.frame(
+      doi = doi,
+      status = "failed",
+      path = NA_character_,
+      url = NA_character_,
+      message = NA_character_,
+      stringsAsFactors = FALSE
+    )
+
+    if (is.na(doi) || !nzchar(doi)) {
+      result$message <- "DOI is missing or empty."
+      results[[i]] <- result
+      next
+    }
+
+    cr <- tryCatch(
+      cr_works(dois = doi),
+      error = function(e) e
+    )
+    if (inherits(cr, "error") || is.null(cr) || is.null(cr$data) || nrow(cr$data) == 0) {
+      result$message <- "Crossref lookup failed or returned no records."
+      results[[i]] <- result
+      next
+    }
+
+    download_url <- extract_crossref_pdf_url(cr$data)
+    result$url <- download_url
+    if (is.na(download_url) || !nzchar(download_url)) {
+      result$message <- "No downloadable PDF link found in Crossref metadata."
+      results[[i]] <- result
+      next
+    }
+
+    destfile <- file.path(outdir, doi_to_filename(doi))
+    result$path <- destfile
+
+    if (file.exists(destfile) && !isTRUE(overwrite)) {
+      result$status <- "skipped"
+      result$message <- "File already exists."
+      results[[i]] <- result
+      next
+    }
+
+    download_ok <- tryCatch(
+      {
+        download_remote_file(download_url, destfile)
+        TRUE
+      },
+      error = function(e) {
+        result$message <<- conditionMessage(e)
+        FALSE
+      }
+    )
+
+    if (!download_ok) {
+      if (file.exists(destfile)) {
+        unlink(destfile)
+      }
+      results[[i]] <- result
+      next
+    }
+
+    result$status <- "downloaded"
+    result$message <- "OK"
+    results[[i]] <- result
+  }
+
+  do.call(rbind, results)
 }

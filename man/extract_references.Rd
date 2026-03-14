@@ -4,19 +4,20 @@
 \alias{extract_references}
 \title{Extract references from papers}
 \usage{
-extract_references(indir, method = "cermine", ...)
+extract_references(indir, method = c("cermine", "grobid"), ...)
 }
 \arguments{
 \item{indir}{the path to the directory containing the pdfs of the papers}
 
-\item{method}{the method to use for extracting references. Currently, only "cermine" is supported.}
+\item{method}{the method to use for extracting references. Supported values are "cermine" and "grobid".}
 }
 \value{
 a list of references extracted from the papers
 }
 \description{
-This function extracts references from a list of papers. Currently, it supports extraction using CERMINE only. We might
-To use cermine, ensure you have Java installed on your system.
+This function extracts references from a list of papers. Currently, it supports extraction using CERMINE
+and GROBID.
+To use cermine or grobid, ensure you have Java installed on your system.
 Place the pdfs of all the papers which you want to extract references from in a directory anywhere on your machine.
 }
 \author{

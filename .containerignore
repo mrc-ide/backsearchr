@@ -1,0 +1,23 @@
+.git
+.gitignore
+.DS_Store
+
+# Local/editor artifacts
+.Rhistory
+.Rproj.user
+.quarto
+docs
+pkgdown
+
+# Runtime/input-output data that should not be part of image build context
+data
+logs
+pdfs
+mers-pdfs
+*.csv
+*.xlsx
+
+# Keep image context focused on source/package files
+not_matched.csv
+titles_matched.csv
+workflow.R

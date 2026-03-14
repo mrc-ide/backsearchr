@@ -1,0 +1,16 @@
+services:
+  backsearchr:
+    platform: ${BACKSEARCHR_PLATFORM:-linux/amd64}
+    build:
+      context: .
+      dockerfile: Containerfile
+    image: localhost/backsearchr:local
+    pull_policy: never
+    working_dir: /work
+    volumes:
+      - ./data/in:/work/data/in
+      - ./data/out:/work/data/out
+    environment:
+      - BACKSEARCHR_GROBID_JAR=${BACKSEARCHR_GROBID_JAR:-/opt/grobid/grobid-0.8.2/grobid-core/build/libs/grobid-core-0.8.2-onejar.jar}
+      - BACKSEARCHR_GROBID_HOME=${BACKSEARCHR_GROBID_HOME:-/opt/grobid/grobid-0.8.2/grobid-home}
+    command: ["--help"]

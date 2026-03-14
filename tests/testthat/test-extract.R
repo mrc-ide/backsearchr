@@ -79,3 +79,72 @@ test_that("extract_references dispatches to requested backend", {
   expect_equal(nrow(out), 1)
   expect_identical(out$doi[[1]], "10.1/mock")
 })
+
+test_that("resolve_grobid_native_lib_dir prefers platform-matching directory", {
+  grobid_home <- tempfile("grobid-home-")
+  dir.create(file.path(grobid_home, "lib", "mac_arm-64"), recursive = TRUE)
+  dir.create(file.path(grobid_home, "lib", "lin-64"), recursive = TRUE)
+
+  testthat::local_mocked_bindings(
+    Sys.info = function() {
+      c(sysname = "Linux", machine = "x86_64")
+    },
+    .package = "base"
+  )
+
+  out <- backsearchr:::resolve_grobid_native_lib_dir(grobid_home)
+  expect_identical(out, file.path(grobid_home, "lib", "lin-64"))
+})
+
+test_that("download_doi_pdfs downloads files resolved from Crossref links", {
+  outdir <- tempfile("doi-downloads-")
+  dir.create(outdir)
+
+  testthat::local_mocked_bindings(
+    cr_works = function(dois, ...) {
+      data <- data.frame(doi = dois, stringsAsFactors = FALSE)
+      data$link <- I(list(data.frame(
+        URL = "https://example.org/paper.pdf",
+        content.type = "application/pdf",
+        stringsAsFactors = FALSE
+      )))
+      list(data = data)
+    },
+    download_remote_file = function(url, destfile) {
+      writeBin(charToRaw("pdf-bytes"), destfile)
+      0L
+    },
+    .package = "backsearchr"
+  )
+
+  out <- backsearchr::download_doi_pdfs("10.1000/test", outdir)
+
+  expect_equal(nrow(out), 1)
+  expect_identical(out$status[[1]], "downloaded")
+  expect_true(file.exists(out$path[[1]]))
+  expect_match(basename(out$path[[1]]), "^10_1000_test\\.pdf$")
+})
+
+test_that("download_doi_pdfs reports missing Crossref PDF links", {
+  outdir <- tempfile("doi-downloads-")
+  dir.create(outdir)
+
+  testthat::local_mocked_bindings(
+    cr_works = function(dois, ...) {
+      data <- data.frame(doi = dois, stringsAsFactors = FALSE)
+      data$link <- I(list(data.frame(
+        URL = "https://example.org/landing-page",
+        content.type = "text/html",
+        stringsAsFactors = FALSE
+      )))
+      list(data = data)
+    },
+    .package = "backsearchr"
+  )
+
+  out <- backsearchr::download_doi_pdfs("10.1000/no-pdf", outdir)
+
+  expect_equal(nrow(out), 1)
+  expect_identical(out$status[[1]], "failed")
+  expect_match(out$message[[1]], "No downloadable PDF link found")
+})

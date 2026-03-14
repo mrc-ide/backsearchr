@@ -2,20 +2,27 @@
 % Please edit documentation in R/utils.R
 \name{get_missing_article_info}
 \alias{get_missing_article_info}
-\title{Retrieve additional information for references using crossref}
+\title{Retrieve additional information for a reference using crossref}
 \usage{
 get_missing_article_info(title, authors)
 }
 \arguments{
-\item{title}{}
+\item{title}{(character) title of the article}
 
-\item{x}{data.frame of references. Must have columns "doi" and "title".}
+\item{authors}{(character) authors of the article}
+}
+\value{
+a data.frame with title and DOI information for the input query
+parameters.
 }
 \description{
 Automated extraction leaves a lot wanting. The only thing we can reliably
 extract is the title. We can use this title to query crossref and get
-additional information. This function takes a data.frame of references and
+additional information. This function takes a single reference and author
+name and
 queries crossref for additional information. It returns a data.frame with
+the title and DOI information for the input query parameters. If you wish to
+query multiple references, use \code{\link{get_missing_article_info_}}.
 }
 \author{
 Sangeeta Bhatia

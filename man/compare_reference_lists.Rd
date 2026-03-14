@@ -21,9 +21,9 @@ but not the other
 }
 \details{
 Compares two lists of references to identify references that are in
-one list but not the other. We first check if any dois in \code{extracted_refs} are
-in \code{provided_refs}. Then we check if any titles in \code{extracted_refs} are in
-\code{provided_refs}. Titles are compared after pre-processing them with
+one list but not the other. We first check if any dois in \code{extracted_refs}
+are in \code{provided_refs}. Then we check if any titles in \code{extracted_refs} are
+in \code{provided_refs}. Titles are compared after pre-processing them with
 \code{\link{cleanup_strings}}. If the list \code{extracted_refs} has been generated
 by \code{\link{extract_references}}, the titles will already be pre-processed.
 }
