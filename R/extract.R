@@ -97,7 +97,8 @@ extract_references_cermine <- function(indir, ...) {
 
 extract_references_grobid <- function(
   indir, grobid_jar = NULL, grobid_home = NULL,
-  grobid_exe = "processReferences", grobid_java_opts = c("-Xmx2G"), ...
+  grobid_exe = "processReferences", grobid_java_opts = c("-Xmx2G"),
+  grobid_outdir = NULL, ...
 ) {
   indir <- normalizePath(indir)
   if (!dir.exists(indir)) {
@@ -112,6 +113,23 @@ extract_references_grobid <- function(
     cli_alert_info("I did not find any PDFs in the specified directory.
                      I am exiting without doing anything.")
     stop("No PDFs found in input directory.", call. = FALSE)
+  }
+  if (is.null(grobid_outdir)) {
+    grobid_outdir <- indir
+  }
+  if (!dir.exists(grobid_outdir)) {
+    dir.create(grobid_outdir, recursive = TRUE, showWarnings = FALSE)
+  }
+  grobid_outdir <- normalizePath(grobid_outdir)
+  if (!dir.exists(grobid_outdir)) {
+    cli_alert_danger("The specified grobid_outdir does not exist")
+  }
+  if (file.access(grobid_outdir, 2) != 0) {
+    cli_alert_danger(
+      "GROBID writes XML output to {.path {grobid_outdir}} but this directory is not writable.
+       Grant write permissions, or copy PDFs to a writable directory and rerun."
+    )
+    stop("GROBID output directory is not writable.", call. = FALSE)
   }
 
   # Resolve bundled GROBID jar by default, allow explicit override.
@@ -135,6 +153,17 @@ extract_references_grobid <- function(
       "I could not find `grobid-home`. Provide `grobid_home=` or bundle it under inst/extdata."
     )
   }
+  grobid_tmp <- file.path(grobid_home, "tmp")
+  if (!dir.exists(grobid_tmp)) {
+    dir.create(grobid_tmp, recursive = TRUE, showWarnings = FALSE)
+  }
+  if (!dir.exists(grobid_tmp) || file.access(grobid_tmp, 2) != 0) {
+    cli_alert_danger(
+      "GROBID temporary directory {.path {grobid_tmp}} is missing or not writable.
+       Ensure the directory exists and has write permissions."
+    )
+    stop("GROBID temporary directory is not writable.", call. = FALSE)
+  }
 
   check_java_available("GROBID")
 
@@ -150,7 +179,7 @@ extract_references_grobid <- function(
     "-jar", grobid_jar,
     "-gH", grobid_home,
     "-dIn", indir,
-    "-dOut", indir,
+    "-dOut", grobid_outdir,
     "-exe", grobid_exe
   )
   grobid_out <- system2("java", args, stdout = TRUE, stderr = TRUE)
@@ -164,19 +193,34 @@ extract_references_grobid <- function(
   }
 
   tei_files <- list.files(
-    indir, pattern = "\\.tei\\.xml$", full.names = TRUE, recursive = TRUE,
+    grobid_outdir, pattern = "\\.tei\\.xml$", full.names = TRUE, recursive = TRUE,
     ignore.case = TRUE
   )
   if (length(tei_files) == 0) {
     all_xml <- list.files(
-      indir, pattern = "\\.xml$", full.names = TRUE, recursive = TRUE,
+      grobid_outdir, pattern = "\\.xml$", full.names = TRUE, recursive = TRUE,
       ignore.case = TRUE
     )
     tei_files <- all_xml[!grepl("\\.cermxml$", all_xml, ignore.case = TRUE)]
   }
   if (length(tei_files) == 0) {
+    grobid_error_lines <- grep(
+      "(?i)(error|exception|cannot parse|permission denied|file not found)",
+      grobid_out,
+      value = TRUE,
+      perl = TRUE
+    )
+    if (length(grobid_error_lines) > 0) {
+      cli_alert_danger(
+        "GROBID did not produce XML output and reported errors.
+         Here are the last relevant lines:
+         {paste(tail(grobid_error_lines, 10), collapse = '\n')}"
+      )
+    } else if (length(grobid_out) > 0) {
+      cli_alert_info("GROBID output (tail):\n{paste(tail(grobid_out, 20), collapse = '\n')}")
+    }
     cli_alert_danger(
-      "I cannot see any files with extension .tei.xml in {.path {indir}}.
+      "I cannot see any files with extension .tei.xml in {.path {grobid_outdir}}.
        This means extraction of references has failed. I am exiting with error."
     )
   }

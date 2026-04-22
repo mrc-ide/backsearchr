@@ -96,19 +96,139 @@ test_that("resolve_grobid_native_lib_dir prefers platform-matching directory", {
   expect_identical(out, file.path(grobid_home, "lib", "lin-64"))
 })
 
-test_that("download_doi_pdfs downloads files resolved from Crossref links", {
+test_that("download_doi_pdfs uses provided oa_pdf_url before fallbacks", {
   outdir <- tempfile("doi-downloads-")
   dir.create(outdir)
 
   testthat::local_mocked_bindings(
-    cr_works = function(dois, ...) {
-      data <- data.frame(doi = dois, stringsAsFactors = FALSE)
-      data$link <- I(list(data.frame(
-        URL = "https://example.org/paper.pdf",
-        content.type = "application/pdf",
+    download_remote_file = function(url, destfile) {
+      expect_identical(url, "https://example.org/provided.pdf")
+      writeBin(charToRaw("pdf-bytes"), destfile)
+      0L
+    },
+    .package = "backsearchr"
+  )
+
+  out <- backsearchr::download_doi_pdfs(
+    "10.1000/test",
+    outdir,
+    oa_pdf_urls = "https://example.org/provided.pdf",
+    method = "doi_only"
+  )
+
+  expect_equal(nrow(out), 1)
+  expect_identical(out$status[[1]], "downloaded")
+  expect_identical(out$resolver_used[[1]], "oa_candidate")
+  expect_identical(out$resolved_url[[1]], "https://example.org/provided.pdf")
+  expect_true(file.exists(out$path[[1]]))
+  expect_match(basename(out$path[[1]]), "^10_1000_test\\.pdf$")
+})
+
+test_that("download_doi_pdfs uses OpenAlex OA URLs in auto mode", {
+  outdir <- tempfile("doi-downloads-")
+  dir.create(outdir)
+
+  testthat::local_mocked_bindings(
+    get_openalex_oa_metadata_by_doi = function(dois) {
+      data.frame(
+        doi = as.character(dois),
+        oa_is_oa = TRUE,
+        oa_status = "gold",
+        oa_url = "https://example.org/openalex-landing",
+        oa_pdf_url = "https://example.org/openalex.pdf",
         stringsAsFactors = FALSE
-      )))
-      list(data = data)
+      )
+    },
+    download_remote_file = function(url, destfile) {
+      expect_identical(url, "https://example.org/openalex.pdf")
+      writeBin(charToRaw("pdf-bytes"), destfile)
+      0L
+    },
+    .package = "backsearchr"
+  )
+
+  out <- backsearchr::download_doi_pdfs("10.1000/no-pdf", outdir, method = "auto")
+
+  expect_equal(nrow(out), 1)
+  expect_identical(out$status[[1]], "downloaded")
+  expect_identical(out$oa_status[[1]], "gold")
+  expect_identical(out$oa_pdf_url[[1]], "https://example.org/openalex.pdf")
+})
+
+test_that("download_doi_pdfs flags invalid DOI input", {
+  outdir <- tempfile("doi-downloads-")
+  dir.create(outdir)
+
+  out <- backsearchr::download_doi_pdfs("https://doi.org/10.1234/", outdir)
+
+  expect_equal(nrow(out), 1)
+  expect_identical(out$status[[1]], "failed")
+  expect_match(out$message[[1]], "missing or invalid")
+})
+
+test_that("download_doi_pdfs falls back to DOI resolution when OA candidates fail", {
+  outdir <- tempfile("doi-downloads-")
+  dir.create(outdir)
+
+  testthat::local_mocked_bindings(
+    get_openalex_oa_metadata_by_doi = function(dois) {
+      data.frame(
+        doi = as.character(dois),
+        oa_is_oa = FALSE,
+        oa_status = "closed",
+        oa_url = "https://example.org/not-pdf",
+        oa_pdf_url = NA_character_,
+        stringsAsFactors = FALSE
+      )
+    },
+    resolve_pdf_url_from_doi = function(doi) {
+      list(
+        resolver = "doi",
+        source_url = paste0("https://doi.org/", doi),
+        resolved_url = "https://example.org/fallback.pdf",
+        content_type = "application/pdf",
+        is_pdf = TRUE
+      )
+    },
+    download_remote_file = function(url, destfile) {
+      expect_identical(url, "https://example.org/fallback.pdf")
+      writeBin(charToRaw("pdf-bytes"), destfile)
+      0L
+    },
+    .package = "backsearchr"
+  )
+
+  out <- backsearchr::download_doi_pdfs("10.1000/test-a", outdir, overwrite = TRUE, method = "openalex_then_doi")
+
+  expect_identical(out$status[[1]], "downloaded")
+  expect_identical(out$resolver_used[[1]], "doi")
+})
+
+test_that("download_doi_pdfs doi_only bypasses OpenAlex metadata lookup", {
+  outdir <- tempfile("doi-downloads-")
+  dir.create(outdir)
+  called_openalex <- FALSE
+
+  testthat::local_mocked_bindings(
+    get_openalex_oa_metadata_by_doi = function(dois) {
+      called_openalex <<- TRUE
+      data.frame(
+        doi = as.character(dois),
+        oa_is_oa = NA,
+        oa_status = NA_character_,
+        oa_url = NA_character_,
+        oa_pdf_url = NA_character_,
+        stringsAsFactors = FALSE
+      )
+    },
+    resolve_pdf_url_from_doi = function(doi) {
+      list(
+        resolver = "doi",
+        source_url = paste0("https://doi.org/", doi),
+        resolved_url = "https://example.org/direct.pdf",
+        content_type = "application/pdf",
+        is_pdf = TRUE
+      )
     },
     download_remote_file = function(url, destfile) {
       writeBin(charToRaw("pdf-bytes"), destfile)
@@ -117,34 +237,23 @@ test_that("download_doi_pdfs downloads files resolved from Crossref links", {
     .package = "backsearchr"
   )
 
-  out <- backsearchr::download_doi_pdfs("10.1000/test", outdir)
+  out <- backsearchr::download_doi_pdfs("10.1000/test-b", outdir, overwrite = TRUE, method = "doi_only")
 
-  expect_equal(nrow(out), 1)
+  expect_false(called_openalex)
   expect_identical(out$status[[1]], "downloaded")
-  expect_true(file.exists(out$path[[1]]))
-  expect_match(basename(out$path[[1]]), "^10_1000_test\\.pdf$")
+  expect_true(is.na(out$oa_status[[1]]))
 })
 
-test_that("download_doi_pdfs reports missing Crossref PDF links", {
+test_that("download_doi_pdfs validates oa vector lengths", {
   outdir <- tempfile("doi-downloads-")
   dir.create(outdir)
 
-  testthat::local_mocked_bindings(
-    cr_works = function(dois, ...) {
-      data <- data.frame(doi = dois, stringsAsFactors = FALSE)
-      data$link <- I(list(data.frame(
-        URL = "https://example.org/landing-page",
-        content.type = "text/html",
-        stringsAsFactors = FALSE
-      )))
-      list(data = data)
-    },
-    .package = "backsearchr"
+  expect_error(
+    backsearchr::download_doi_pdfs(c("10.1/a", "10.1/b"), outdir, oa_pdf_urls = "https://x"),
+    "oa_pdf_urls"
   )
-
-  out <- backsearchr::download_doi_pdfs("10.1000/no-pdf", outdir)
-
-  expect_equal(nrow(out), 1)
-  expect_identical(out$status[[1]], "failed")
-  expect_match(out$message[[1]], "No downloadable PDF link found")
+  expect_error(
+    backsearchr::download_doi_pdfs(c("10.1/a", "10.1/b"), outdir, oa_urls = "https://y"),
+    "oa_urls"
+  )
 })

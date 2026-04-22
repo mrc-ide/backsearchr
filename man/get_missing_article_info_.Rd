@@ -4,16 +4,14 @@
 \alias{get_missing_article_info_}
 \title{Retrieve additional information for multiple references using crossref}
 \usage{
-get_missing_article_info_(ref_list)
+get_missing_article_info_(ref_list, method)
 }
 \arguments{
 \item{ref_list}{A list of references, most likely output from
 \code{\link{extract_references}}. If you have produced a list of references
 manually, ensure that it has the following columns: doi, title, authors.}
 
-\item{title}{(character) title of the article}
-
-\item{authors}{(character) authors of the article}
+\item{method}{retrieval backend; one of "crossref" or "openalex"}
 }
 \value{
 the input data.frame with DOI updated where it could be retrirved

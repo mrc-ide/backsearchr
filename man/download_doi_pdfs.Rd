@@ -4,22 +4,37 @@
 \alias{download_doi_pdfs}
 \title{Download PDFs for a vector of DOIs}
 \usage{
-download_doi_pdfs(dois, outdir, overwrite = FALSE)
+download_doi_pdfs(
+  dois,
+  outdir,
+  oa_pdf_urls = NULL,
+  oa_urls = NULL,
+  overwrite = FALSE,
+  method = c("auto", "openalex_then_doi", "doi_only")
+)
 }
 \arguments{
 \item{dois}{character vector of DOIs or doi.org URLs}
 
 \item{outdir}{path to the directory where downloaded files should be saved}
 
+\item{oa_pdf_urls}{optional character vector of OA PDF URLs aligned with
+\code{dois}}
+
+\item{oa_urls}{optional character vector of OA landing-page URLs aligned with
+\code{dois}}
+
 \item{overwrite}{logical; overwrite existing files if TRUE}
+
+\item{method}{resolver strategy. Supported values are "auto",
+"openalex_then_doi", and "doi_only"}
 }
 \value{
 a data.frame with one row per DOI and columns describing the
-download status, output path, and resolved URL
+download status, output path, resolver, resolved URLs, and OA metadata
 }
 \description{
-This function attempts to resolve each DOI to a downloadable file URL using
-Crossref metadata and saves the file in a user-specified directory.
-It works best for DOIs with a PDF link exposed via Crossref. When no direct
-file link is available, the DOI is reported as not downloadable.
+This function resolves each DOI to candidate file URLs using user-provided
+OA URLs, OpenAlex OA metadata, and DOI resolution fallback, then attempts to
+download PDFs to a user-specified directory.
 }

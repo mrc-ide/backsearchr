@@ -2,27 +2,26 @@
 % Please edit documentation in R/utils.R
 \name{get_missing_article_info}
 \alias{get_missing_article_info}
-\title{Retrieve additional information for a reference using crossref}
+\title{Retrieve article metadata using Crossref or OpenAlex}
 \usage{
-get_missing_article_info(title, authors)
+get_missing_article_info(queries, method)
 }
 \arguments{
-\item{title}{(character) title of the article}
+\item{queries}{character vector of DOI strings, DOI URLs, and/or titles}
 
-\item{authors}{(character) authors of the article}
+\item{method}{retrieval backend; one of "crossref" or "openalex"}
 }
 \value{
-a data.frame with title and DOI information for the input query
-parameters.
+a data.frame with one row per input query and columns:
+input_query, query_type, doi, title, authors, year, journal, citation_count,
+oa_is_oa, oa_status, oa_url, oa_pdf_url, oa_any_repository_has_fulltext,
+status, and message
 }
 \description{
-Automated extraction leaves a lot wanting. The only thing we can reliably
-extract is the title. We can use this title to query crossref and get
-additional information. This function takes a single reference and author
-name and
-queries crossref for additional information. It returns a data.frame with
-the title and DOI information for the input query parameters. If you wish to
-query multiple references, use \code{\link{get_missing_article_info_}}.
+This function takes a character vector of DOI strings, DOI URLs, and/or
+titles and queries the selected backend.
+Open Access columns are sourced from OpenAlex; when \code{method = "crossref"}
+these OA-specific columns are returned as \code{NA}.
 }
 \author{
 Sangeeta Bhatia
