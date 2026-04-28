@@ -23,6 +23,7 @@
 compare_reference_lists <- function(provided_refs, extracted_refs) {
   provided_input <- provided_refs
   extracted_input <- extracted_refs
+
   provided_refs$.provided_row_id <- seq_len(nrow(provided_refs))
   extracted_refs$.extracted_row_id <- seq_len(nrow(extracted_refs))
 
@@ -143,10 +144,17 @@ compare_reference_lists <- function(provided_refs, extracted_refs) {
     title_idx <- match(matched_ids_in_order, title_summary$.extracted_row_id)
     has_doi <- !is.na(doi_idx)
     has_title <- !is.na(title_idx)
-    matched_df$matched_provided_row_ids[has_doi] <- doi_summary$matched_provided_row_ids[doi_idx[has_doi]]
-    matched_df$matched_provided_titles[has_doi] <- doi_summary$matched_provided_titles[doi_idx[has_doi]]
-    matched_df$matched_provided_row_ids[!has_doi & has_title] <- title_summary$matched_provided_row_ids[title_idx[!has_doi & has_title]]
-    matched_df$matched_provided_titles[!has_doi & has_title] <- title_summary$matched_provided_titles[title_idx[!has_doi & has_title]]
+    matched_df$matched_provided_row_ids[has_doi] <-
+      doi_summary$matched_provided_row_ids[doi_idx[has_doi]]
+    
+    matched_df$matched_provided_titles[has_doi] <-
+      doi_summary$matched_provided_titles[doi_idx[has_doi]]
+    
+    matched_df$matched_provided_row_ids[!has_doi & has_title] <-
+      title_summary$matched_provided_row_ids[title_idx[!has_doi & has_title]]
+    
+    matched_df$matched_provided_titles[!has_doi & has_title] <-
+      title_summary$matched_provided_titles[title_idx[!has_doi & has_title]]
   }
 
   not_matched <- extracted_input[
@@ -154,8 +162,8 @@ compare_reference_lists <- function(provided_refs, extracted_refs) {
     , drop = FALSE
   ]
 
-  doi_matched_df <- matched_df[matched_df$match_type == "doi", , drop = FALSE]
-  titles_matched_df <- matched_df[matched_df$match_type == "title", , drop = FALSE]
+  doi_matched_df <- matched_df[matched_df$match_type %in% "doi", , drop = FALSE]
+  titles_matched_df <- matched_df[matched_df$match_type %in% "title", , drop = FALSE]
 
   list(
     doi_matched = doi_matched_df,

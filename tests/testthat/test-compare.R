@@ -22,6 +22,12 @@ test_that("compare_reference_lists partitions extracted refs into matched and no
   expect_equal(nrow(out$titles_matched), 1)
   expect_equal(nrow(out$not_matched), 1)
   expect_true(all(out$matched$match_type %in% c("doi", "title")))
+  has_all_na_row <- function(df) {
+    if (nrow(df) == 0) return(FALSE)
+    any(apply(df, 1, function(r) all(is.na(r) | r == "")))
+  }
+  expect_false(has_all_na_row(out$doi_matched))
+  expect_false(has_all_na_row(out$titles_matched))
 })
 
 test_that("compare_reference_lists keeps extracted trail and provided matches", {
